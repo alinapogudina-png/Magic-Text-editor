@@ -1,0 +1,566 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Magic Text Builder - ELT Workshop</title>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Poppins:wght@400;600;800&display=swap');
+        
+        body { 
+            font-family: 'Poppins', sans-serif; 
+            background-color: #fb6095; 
+            color: #ffffff; 
+            display: flex; 
+            padding: 20px; 
+            gap: 20px; 
+            height: 100vh; 
+            margin: 0; 
+            box-sizing: border-box; 
+            overflow: hidden; 
+        }
+        
+        /* Панели */
+        .editor-panel, .preview-panel { 
+            background-color: rgba(20, 10, 25, 0.9); 
+            backdrop-filter: blur(15px); 
+            padding: 25px; 
+            border-radius: 20px; 
+            box-shadow: 0 20px 50px rgba(0, 0, 0, 0.5); 
+            border: 1px solid rgba(255, 255, 255, 0.15); 
+            z-index: 1; 
+            display: flex; 
+            flex-direction: column;
+        }
+        .editor-panel { width: 45%; overflow-y: auto; }
+        .preview-panel { width: 55%; position: relative; }
+        
+        /* Скроллбар */
+        .editor-panel::-webkit-scrollbar { width: 8px; }
+        .editor-panel::-webkit-scrollbar-thumb { background: #fb6095; border-radius: 4px; }
+        
+        /* Тексты и заголовки */
+        h1 { color: #fff; font-weight: 800; font-size: 32px; margin: 0 0 5px 0; text-align: center; text-transform: uppercase; letter-spacing: 2px; text-shadow: 0 0 15px #fb6095;}
+        .subtitle { text-align: center; color: #ffb3c6; font-size: 12px; margin-bottom: 25px; letter-spacing: 1px;}
+        h3 { color: #fb6095; font-size: 14px; margin-bottom: 12px; border-bottom: 1px solid rgba(251, 96, 149, 0.3); padding-bottom: 5px; margin-top: 25px; text-transform: uppercase; letter-spacing: 1px;}
+        
+        /* Формы */
+        .form-group { margin-bottom: 15px; }
+        label { display: block; margin-bottom: 6px; font-weight: 600; font-size: 12px; color: #ffb3c6; text-transform: uppercase;}
+        .help-text { font-size: 11px; color: #a8ff78; margin-top: -4px; margin-bottom: 10px; display: block; text-transform: none; line-height: 1.4;}
+        
+        input[type="text"], input[type="number"], select, textarea { 
+            width: 100%; padding: 12px 15px; border-radius: 10px; 
+            border: 1px solid rgba(251, 96, 149, 0.4); 
+            background-color: rgba(0,0,0,0.5); color: #fff; 
+            box-sizing: border-box; font-family: 'Poppins', sans-serif; 
+            font-size: 14px; transition: 0.3s; 
+        }
+        input:focus, select:focus, textarea:focus { border-color: #fb6095; outline: none; box-shadow: 0 0 15px rgba(251, 96, 149, 0.4); }
+        
+        input[type="color"] { padding: 0; border: none; width: 100%; height: 40px; border-radius: 8px; cursor: pointer; background: transparent; }
+        input[type="range"] { width: 100%; accent-color: #fb6095; cursor: pointer; margin-top: 5px;}
+        input[type="checkbox"] { accent-color: #fb6095; transform: scale(1.3); margin-right: 8px; cursor: pointer; }
+        
+        textarea { resize: vertical; min-height: 80px; white-space: pre-wrap; }
+        
+        .flex-row { display: flex; gap: 15px; align-items: flex-start; margin-bottom: 10px; flex-wrap: wrap; }
+        .flex-col { flex: 1; min-width: 100px; }
+        .val-display { display: inline-block; background: rgba(251, 96, 149, 0.3); padding: 2px 8px; border-radius: 5px; font-size: 11px; margin-left: 10px; color: #fff;}
+
+        /* Iframe */
+        #previewFrame { width: 100%; flex: 1; border: 2px dashed #fb6095; border-radius: 15px; background-color: #111; transition: background 0.3s;}
+        
+        /* Кнопка */
+        button.gen-btn { 
+            background: linear-gradient(135deg, #ff0844, #fb6095); 
+            color: #fff; padding: 18px; border: none; border-radius: 12px; cursor: pointer; 
+            font-size: 16px; font-weight: 800; transition: 0.3s; text-transform: uppercase; 
+            letter-spacing: 1px; box-shadow: 0 5px 20px rgba(251, 96, 149, 0.6); margin-top: 20px;
+        }
+        button.gen-btn:hover { transform: translateY(-3px); box-shadow: 0 8px 25px rgba(251, 96, 149, 0.8); }
+        
+        #generated-code { height: 80px; margin-top: 10px; background: rgba(0,0,0,0.5); border-color: #fb6095; color: #a8ff78; font-family: monospace; font-size: 11px;}
+    </style>
+</head>
+<body>
+
+    <div class="editor-panel">
+        <h1>MAGIC TEXT</h1>
+        <div class="subtitle">© 2026 Alina Pogudina @ELT_workshop</div>
+        
+        <div class="form-group">
+            <label>Ваш Текст (или LaTeX Формула)</label>
+            <span class="help-text">Математику оборачивайте в <b>$</b> (пример: <code>Реши: $\frac{1}{2} + x^2$</code>)</span>
+            <textarea id="fxText" rows="3" oninput="debounceGenerate()">MAGIC TEXT</textarea>
+        </div>
+
+        <h3>Шрифты и Размеры</h3>
+        <div class="flex-row">
+            <div class="form-group flex-col" style="flex: 2;">
+                <label>Шрифт</label>
+                <select id="fontFamily" onchange="debounceGenerate()">
+                    <!-- Жуткие и магические шрифты -->
+                    <option value="'Creepster', cursive">Creepster (Ужасы/Хэллоуин)</option>
+                    <option value="'Nosifer', cursive">Nosifer (Кровь/Монстры)</option>
+                    <option value="'Cinzel Decorative', serif">Cinzel Decorative (Мистика/Магия)</option>
+                    <option value="'Press Start 2P', cursive">Press Start 2P (Пиксельный/Ретро)</option>
+                    <option value="'Bangers', cursive">Bangers (Комиксы/Взрыв)</option>
+                    <!-- Предыдущие шрифты -->
+                    <option value="'Montserrat', sans-serif">Montserrat (Строгий)</option>
+                    <option value="'Russo One', sans-serif">Russo One (Игровой)</option>
+                    <option value="'Comfortaa', sans-serif">Comfortaa (Круглый)</option>
+                    <option value="'Jura', sans-serif">Jura (Космический)</option>
+                    <option value="'Kurale', serif">Kurale (Сказка)</option>
+                    <option value="'Caveat', cursive">Caveat (Рукописный)</option>
+                    <option value="'Neucha', cursive">Neucha (Игривый)</option>
+                    <option value="'Oswald', sans-serif">Oswald (Узкий)</option>
+                    <option value="'Alice', serif">Alice (Винтаж)</option>
+                    <option value="'Bad Script', cursive">Bad Script (Письмо)</option>
+                    <option value="'Amatic SC', cursive">Amatic SC (Хипстерский)</option>
+                    <option value="'Playfair Display', serif">Playfair Display (Элегантный)</option>
+                </select>
+            </div>
+            <div class="form-group flex-col">
+                <label>Размер (px)</label>
+                <input type="number" id="fontSize" value="70" oninput="debounceGenerate()">
+            </div>
+        </div>
+
+        <h3>Цвета и Эффекты</h3>
+        <div class="flex-row">
+            <div class="form-group flex-col">
+                <label>Цвет текста</label>
+                <input type="color" id="textColor" value="#ffffff" onchange="debounceGenerate()">
+            </div>
+            <div class="form-group flex-col">
+                <label style="cursor: pointer; display: flex; align-items: center; color: #fff;">
+                    <input type="checkbox" id="enableGlow" checked onchange="debounceGenerate()"> Свечение
+                </label>
+                <input type="color" id="glowColor" value="#39ff14" onchange="debounceGenerate()">
+            </div>
+            <div class="form-group flex-col">
+                <label style="cursor: pointer; display: flex; align-items: center; color: #fff;">
+                    <input type="checkbox" id="enableSparks" checked onchange="debounceGenerate()"> Искры
+                </label>
+                <input type="color" id="sparkColor" value="#ccffcc" onchange="debounceGenerate()">
+            </div>
+        </div>
+
+        <h3>Анимация</h3>
+        
+        <div class="form-group" style="background: rgba(255,255,255,0.05); padding: 15px; border-radius: 10px; border: 1px solid rgba(251, 96, 149, 0.3);">
+            <label style="color:#fff;">Скорость появления: <span id="speedVal" class="val-display">1.0x</span></label>
+            <input type="range" id="animSpeed" min="0.2" max="3" step="0.1" value="1" oninput="document.getElementById('speedVal').innerText = parseFloat(this.value).toFixed(1) + 'x'; debounceGenerate()">
+        </div>
+
+        <div class="form-group">
+            <label>1. Анимация ПОЯВЛЕНИЯ (Intro)</label>
+            <select id="introAnim" onchange="debounceGenerate()">
+                <option value="flyFromPoint">Вылет из одной точки (Взрыв снизу)</option>
+                <option value="fallFromTop">Падение с неба (Сверху страницы)</option>
+                <option value="blurReveal">Магический туман (Blur Reveal)</option>
+                <option value="bounceIn">Упругий прыжок (Bounce In)</option>
+                <option value="zoomIn">Резкое увеличение (Zoom In)</option>
+                <option value="typewriter">Печатная машинка (Typewriter)</option>
+                <option value="slideUp">Всплытие снизу (Slide Up)</option>
+                <option value="dropIn">Падение сверху (Drop In)</option>
+                <option value="flipIn">Раскрытие (Flip In X)</option>
+                <option value="spinIn">Вращение (Spin In)</option>
+                <option value="stretchIn">Сжатие пробелов (Stretch In)</option>
+                <option value="fadeIn">Плавное проявление (Fade In)</option>
+            </select>
+        </div>
+
+        <div class="form-group">
+            <label>2. ДВИЖЕНИЕ (Постоянное)</label>
+            <select id="loopAnim" onchange="debounceGenerate()">
+                <option value="none">Без движения (Оставить только свечение/искры)</option>
+                <option value="floating">Парение в воздухе (Floating)</option>
+                <option value="wiggle">Покачивание (Wiggle)</option>
+                <option value="pulse">Пульсация размера (Pulse)</option>
+                <option value="rainbow">Радужный перелив (Hue Rotate)</option>
+            </select>
+        </div>
+
+        <div class="form-group" style="margin-top: 20px; border-top: 1px solid rgba(255,255,255,0.1); padding-top: 15px;">
+            <label>Цвет фона в предпросмотре (в коде фон будет прозрачным!)</label>
+            <input type="color" id="previewBg" value="#111111" onchange="document.getElementById('previewFrame').style.backgroundColor = this.value;">
+        </div>
+
+        <button class="gen-btn" id="copyBtn" onclick="copyCode()">СГЕНЕРИРОВАТЬ И СКОПИРОВАТЬ КОД</button>
+        <textarea id="generated-code" readonly placeholder="Ваш iFrame код появится здесь..."></textarea>
+    </div>
+
+    <div class="preview-panel">
+        <h2 style="color: #fff; margin-top:0; font-size: 20px; text-align: center;">Live Preview</h2>
+        <iframe id="previewFrame" src="" frameborder="0" allow="autoplay"></iframe>
+    </div>
+
+    <script>
+        // Преобразование HEX в RGBA для свечения
+        function hexToRgba(hex, alpha) {
+            let r = parseInt(hex.slice(1, 3), 16),
+                g = parseInt(hex.slice(3, 5), 16),
+                b = parseInt(hex.slice(5, 7), 16);
+            return `rgba(${r}, ${g}, ${b}, ${alpha})`;
+        }
+
+        function getInputs() {
+            return {
+                text: document.getElementById('fxText').value || "TEXT",
+                fontFamily: document.getElementById('fontFamily').value,
+                fontSize: document.getElementById('fontSize').value,
+                textColor: document.getElementById('textColor').value,
+                
+                enableGlow: document.getElementById('enableGlow').checked,
+                glowColor: document.getElementById('glowColor').value,
+                
+                enableSparks: document.getElementById('enableSparks').checked,
+                sparkColor: document.getElementById('sparkColor').value,
+                
+                introAnim: document.getElementById('introAnim').value,
+                loopAnim: document.getElementById('loopAnim').value,
+                animSpeed: parseFloat(document.getElementById('animSpeed').value) || 1
+            };
+        }
+
+        function generateCode() {
+            const conf = getInputs();
+            const speed = conf.animSpeed;
+
+            // 1. INTRO KEYFRAMES
+            let introKeyframes = "";
+            let animConfig = "";
+            let baseDur = 1.0;
+
+            switch(conf.introAnim) {
+                case "flyFromPoint":
+                    introKeyframes = `@keyframes intro { 0% { opacity: 0; transform: translate(var(--dx, 0), var(--dy, 150px)) scale(0); } 100% { opacity: 1; transform: translate(0, 0) scale(1); } }`;
+                    baseDur = 0.8;
+                    animConfig = `animation: intro ${baseDur / speed}s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards;`;
+                    break;
+                case "fallFromTop":
+                    introKeyframes = `@keyframes intro { 0% { opacity: 0; transform: translateY(-100vh); } 80% { transform: translateY(20px); } 100% { opacity: 1; transform: translateY(0); } }`;
+                    baseDur = 0.9;
+                    animConfig = `animation: intro ${baseDur / speed}s cubic-bezier(0.25, 0.46, 0.45, 0.94) forwards;`;
+                    break;
+                case "blurReveal":
+                    introKeyframes = `@keyframes intro { 0% { opacity: 0; filter: blur(15px); transform: translateY(15px); } 100% { opacity: 1; filter: blur(0); transform: translateY(0); } }`;
+                    baseDur = 1.5;
+                    animConfig = `animation: intro ${baseDur / speed}s cubic-bezier(0.2, 0.8, 0.2, 1) forwards;`;
+                    break;
+                case "bounceIn":
+                    introKeyframes = `@keyframes intro { 0% { opacity: 0; transform: scale(0.3); } 50% { opacity: 1; transform: scale(1.1); } 70% { transform: scale(0.9); } 100% { opacity: 1; transform: scale(1); } }`;
+                    baseDur = 0.8;
+                    animConfig = `animation: intro ${baseDur / speed}s cubic-bezier(0.25, 0.46, 0.45, 0.94) forwards;`;
+                    break;
+                case "zoomIn":
+                    introKeyframes = `@keyframes intro { 0% { opacity: 0; transform: scale(0); } 100% { opacity: 1; transform: scale(1); } }`;
+                    baseDur = 0.6;
+                    animConfig = `animation: intro ${baseDur / speed}s ease-out forwards;`;
+                    break;
+                case "typewriter":
+                    introKeyframes = `@keyframes intro { 0% { opacity: 0; } 100% { opacity: 1; } }`;
+                    baseDur = 0.1;
+                    animConfig = `animation: intro ${baseDur / speed}s linear forwards;`;
+                    break;
+                case "slideUp":
+                    introKeyframes = `@keyframes intro { 0% { opacity: 0; transform: translateY(50px); } 100% { opacity: 1; transform: translateY(0); } }`;
+                    baseDur = 0.6;
+                    animConfig = `animation: intro ${baseDur / speed}s ease-out forwards;`;
+                    break;
+                case "dropIn":
+                    introKeyframes = `@keyframes intro { 0% { opacity: 0; transform: translateY(-50px) scale(1.5); } 100% { opacity: 1; transform: translateY(0) scale(1); } }`;
+                    baseDur = 0.6;
+                    animConfig = `animation: intro ${baseDur / speed}s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards;`;
+                    break;
+                case "flipIn":
+                    introKeyframes = `@keyframes intro { 0% { opacity: 0; transform: perspective(400px) rotateX(90deg); } 100% { opacity: 1; transform: perspective(400px) rotateX(0deg); } }`;
+                    baseDur = 0.8;
+                    animConfig = `animation: intro ${baseDur / speed}s ease-out forwards;`;
+                    break;
+                case "spinIn":
+                    introKeyframes = `@keyframes intro { 0% { opacity: 0; transform: rotate(-180deg) scale(0.2); } 100% { opacity: 1; transform: rotate(0) scale(1); } }`;
+                    baseDur = 0.7;
+                    animConfig = `animation: intro ${baseDur / speed}s cubic-bezier(0.2, 0.8, 0.2, 1) forwards;`;
+                    break;
+                case "stretchIn":
+                    introKeyframes = `@keyframes intro { 0% { opacity: 0; letter-spacing: 30px; filter: blur(5px); } 100% { opacity: 1; letter-spacing: normal; filter: blur(0); } }`;
+                    baseDur = 1.0;
+                    animConfig = `animation: intro ${baseDur / speed}s ease-out forwards;`;
+                    break;
+                case "fadeIn":
+                    introKeyframes = `@keyframes intro { 0% { opacity: 0; } 100% { opacity: 1; } }`;
+                    baseDur = 1.0;
+                    animConfig = `animation: intro ${baseDur / speed}s ease forwards;`;
+                    break;
+            }
+
+            // 2. LOOP & GLOW KEYFRAMES (Сборка массива активных анимаций)
+            let loopKeyframes = "";
+            let activeAnimations = [];
+            
+            // Если включено СВЕЧЕНИЕ
+            if(conf.enableGlow) {
+                let gCol1 = hexToRgba(conf.glowColor, 0.6);
+                let gColPulse = hexToRgba(conf.glowColor, 1);
+                let gColPulseOut = hexToRgba(conf.glowColor, 0.8);
+                
+                loopKeyframes += `
+                @keyframes glow-pulse {
+                    0% { text-shadow: 0 0 10px ${gCol1}; }
+                    100% { text-shadow: 0 0 20px ${gColPulse}, 0 0 40px ${gColPulseOut}; }
+                }`;
+                activeAnimations.push(`glow-pulse 2s ease-in-out infinite alternate`);
+            }
+
+            // Движение
+            if (conf.loopAnim === "floating") {
+                loopKeyframes += `@keyframes float-loop { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-15px); } }`;
+                activeAnimations.push(`float-loop 3s ease-in-out infinite`);
+            } else if (conf.loopAnim === "wiggle") {
+                loopKeyframes += `@keyframes wiggle-loop { 0%, 100% { transform: rotate(0deg); } 25% { transform: rotate(3deg); } 75% { transform: rotate(-3deg); } }`;
+                activeAnimations.push(`wiggle-loop 4s ease-in-out infinite`);
+            } else if (conf.loopAnim === "pulse") {
+                loopKeyframes += `@keyframes pulse-loop { 0%, 100% { transform: scale(1); } 50% { transform: scale(1.05); } }`;
+                activeAnimations.push(`pulse-loop 2s ease-in-out infinite alternate`);
+            } else if (conf.loopAnim === "rainbow") {
+                loopKeyframes += `@keyframes rainbow-loop { 0% { filter: hue-rotate(0deg); } 100% { filter: hue-rotate(360deg); } }`;
+                activeAnimations.push(`rainbow-loop 4s linear infinite`);
+            }
+
+            let loopClassDef = activeAnimations.length > 0 
+                ? `animation: ${activeAnimations.join(', ')};` 
+                : '';
+
+            // 3. ИСКРЫ (Sparks)
+            let sparkCSS = "";
+            if(conf.enableSparks) {
+                let sGlow = hexToRgba(conf.glowColor || '#ffffff', 0.8);
+                sparkCSS = `
+                .fx-spark {
+                    position: absolute;
+                    width: 4px; height: 4px;
+                    background: ${conf.sparkColor};
+                    border-radius: 50%;
+                    box-shadow: 0 0 5px 2px ${sGlow};
+                    opacity: 0; pointer-events: none; z-index: -1;
+                    will-change: transform, opacity;
+                }
+                @keyframes spark-float {
+                    0% { opacity: 0; transform: translate(0, 0) scale(0.5); }
+                    30% { opacity: 0.8; transform: translate(calc(var(--mX) * 0.3), calc(var(--mY) * 0.3)) scale(1.2); }
+                    100% { opacity: 0; transform: translate(var(--mX), var(--mY)) scale(0.5); }
+                }`;
+            }
+
+            // Экранирование для JS
+            const escapedText = conf.text.replace(/\\/g, '\\\\').replace(/`/g, '\\`');
+
+            const innerHTML = `<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+
+<!-- MATH JAX / KATEX -->
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.8/dist/katex.min.css">
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.8/dist/katex.min.js"><\/script>
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.8/dist/contrib/auto-render.min.js"><\/script>
+
+<style>
+    @import url('https://fonts.googleapis.com/css2?family=Alice&family=Amatic+SC:wght@700&family=Bad+Script&family=Bangers&family=Caveat:wght@700&family=Cinzel+Decorative:wght@700&family=Comfortaa:wght@700&family=Creepster&family=Jura:wght@700&family=Kurale&family=Montserrat:wght@800&family=Neucha&family=Nosifer&family=Oswald:wght@700&family=Playfair+Display:wght@700&family=Press+Start+2P&family=Russo+One&display=swap');
+    
+    body { 
+        margin: 0; padding: 0; 
+        display: flex; justify-content: center; align-items: center; 
+        min-height: 100vh; 
+        background: transparent; 
+        overflow: hidden;
+    }
+
+    #fx-container {
+        position: relative;
+        text-align: center;
+        font-family: ${conf.fontFamily};
+        font-size: ${conf.fontSize}px;
+        color: ${conf.textColor};
+        white-space: pre-wrap; 
+        line-height: 1.2;
+    }
+
+    .katex { font-size: 1.1em; }
+    
+    .fx-char {
+        display: inline-block;
+        opacity: 0;
+        will-change: transform, opacity, filter;
+        ${animConfig}
+    }
+
+    .fx-space { display: inline-block; width: 0.3em; }
+
+    /* Intro Keyframes */
+    ${introKeyframes}
+
+    /* Loop Keyframes */
+    ${loopKeyframes}
+
+    /* Activator Class for Loop */
+    .fx-loop-active {
+        ${loopClassDef}
+    }
+
+    /* Sparks */
+    ${sparkCSS}
+
+</style>
+</head>
+<body>
+
+    <div id="fx-container"></div>
+
+    <script>
+        function initMagicText() {
+            // Ждем загрузки библиотеки KaTeX
+            if (typeof renderMathInElement === 'undefined') {
+                setTimeout(initMagicText, 50);
+                return;
+            }
+
+            const rawText = \`${escapedText}\`;
+            const container = document.getElementById('fx-container');
+            
+            let html = '';
+            
+            // Умный парсер: Ищем математику
+            const mathRegex = /(\\$\\$[\\s\\S]*?\\$\\$|\\$[\\s\\S]*?\\$)/g;
+            const parts = rawText.split(mathRegex);
+
+            parts.forEach(part => {
+                if (part.startsWith('$')) {
+                    html += '<span class="fx-char" style="display:inline-block; vertical-align: bottom;">' + part + '</span>';
+                } else {
+                    [...part].forEach(char => {
+                        if(char === ' ' || char === '\\n') {
+                            html += char === '\\n' ? '<br>' : '<span class="fx-space"></span>';
+                        } else {
+                            html += '<span class="fx-char">' + char + '</span>';
+                        }
+                    });
+                }
+            });
+            
+            container.innerHTML = html;
+
+            renderMathInElement(container, {
+                delimiters: [
+                    {left: "$$", right: "$$", display: true},
+                    {left: "$", right: "$", display: false}
+                ],
+                throwOnError: false
+            });
+
+            const chars = container.querySelectorAll('.fx-char');
+            
+            // Расчет для вылета из одной точки
+            ${conf.introAnim === 'flyFromPoint' ? `
+            chars.forEach(c => c.style.animation = 'none');
+            const cRect = container.getBoundingClientRect();
+            const centerX = cRect.width / 2;
+            const startY = cRect.height + 150; 
+
+            chars.forEach((c) => {
+                const rect = c.getBoundingClientRect();
+                const cX = (rect.left - cRect.left) + rect.width / 2;
+                const cY = (rect.top - cRect.top) + rect.height / 2;
+                
+                c.style.setProperty('--dx', (centerX - cX) + 'px');
+                c.style.setProperty('--dy', (startY - cY) + 'px');
+            });
+
+            void container.offsetWidth; 
+            chars.forEach(c => c.style.animation = '');
+            ` : ''}
+
+            const baseStagger = ${conf.introAnim === 'typewriter' ? 0.08 : 0.05};
+            const stagger = baseStagger / ${speed};
+
+            chars.forEach((c, i) => {
+                let delay = i * stagger;
+                c.style.animationDelay = delay + 's';
+            });
+
+            // Запуск постоянных эффектов и искр ПОЧТИ СРАЗУ (100 мс), вместе с появлением текста!
+            setTimeout(() => {
+                // Включаем свечение и движение контейнера
+                ${activeAnimations.length > 0 ? `container.classList.add('fx-loop-active');` : ''}
+
+                // Выпускаем искры
+                ${conf.enableSparks ? `
+                for(let i=0; i<30; i++) {
+                    let spark = document.createElement('div');
+                    spark.className = 'fx-spark';
+                    
+                    let startX = Math.random() * 100;
+                    let startY = Math.random() * 100;
+                    
+                    let mX = (Math.random() - 0.5) * 80;
+                    let mY = -50 - Math.random() * 80;
+                    
+                    let dur = 2 + Math.random() * 3;
+                    let del = Math.random() * 2;
+
+                    spark.style.left = startX + '%';
+                    spark.style.top = startY + '%';
+                    spark.style.setProperty('--mX', mX + 'px');
+                    spark.style.setProperty('--mY', mY + 'px');
+                    spark.style.animation = 'spark-float ' + dur + 's ease-in-out ' + del + 's infinite';
+                    
+                    container.appendChild(spark);
+                }
+                ` : ''}
+            }, 100); 
+        }
+
+        // Запуск
+        initMagicText();
+    <\/script>
+</body>
+</html>`;
+
+            document.getElementById('previewFrame').srcdoc = innerHTML;
+
+            const escapedHTML = innerHTML.replace(/&/g, '&amp;').replace(/"/g, '&quot;');
+            const iframeCode = `<iframe style="width: 100%; height: 100%; border: none; background: transparent;" allowtransparency="true" srcdoc="${escapedHTML}"></iframe>`;
+            
+            document.getElementById('generated-code').value = iframeCode;
+        }
+
+        function copyCode() {
+            generateCode(); 
+            const codeBox = document.getElementById('generated-code');
+            codeBox.select(); 
+            document.execCommand('copy');
+            
+            const btn = document.getElementById('copyBtn');
+            btn.innerText = 'СКОПИРОВАНО!'; 
+            btn.style.background = 'linear-gradient(135deg, #00b09b, #96c93d)'; 
+            
+            setTimeout(() => { 
+                btn.innerText = 'СГЕНЕРИРОВАТЬ И СКОПИРОВАТЬ КОД'; 
+                btn.style.background = 'linear-gradient(135deg, #ff0844, #fb6095)'; 
+            }, 2500);
+        }
+
+        let previewTimeout;
+        function debounceGenerate() { 
+            clearTimeout(previewTimeout); 
+            document.getElementById('previewFrame').srcdoc = "";
+            previewTimeout = setTimeout(generateCode, 600); 
+        }
+
+        debounceGenerate();
+    </script>
+</body>
+</html>
